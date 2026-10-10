@@ -44,6 +44,25 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # Lisensi Android SDK + platform yang dipakai template. Tanpa ini, Gradle
+      # bisa gagal saat harus mengunduh platform (lisensi belum diterima).
+      # Tidak memakai android-actions/setup-android karena action itu meminta
+      # paket 'tools' yang sudah dihapus dari repo Google.
+      - name: Siapkan Android SDK
+        run: |
+          set -e
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "Android SDK: $SDK"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          SDKMGR="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)"
+          if [ -n "$SDKMGR" ]; then
+            yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+            "$SDKMGR" "platform-tools" "platforms;android-36" "build-tools;36.0.0" >/dev/null 2>&1 \
+              || "$SDKMGR" "platform-tools" "platforms;android-35" "build-tools;35.0.0" >/dev/null 2>&1 \
+              || true
+          fi
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
