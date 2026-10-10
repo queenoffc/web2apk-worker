@@ -111,7 +111,7 @@ jobs:
           test "$(ls -1 out/*.apk 2>/dev/null | wc -l)" -gt 0 || { echo "Tidak ada APK hasil build"; exit 1; }
 
       - name: Upload artifact (nama wajib apk-<jobId>)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: apk-${{ inputs.jobId }}
           path: out/*.apk
