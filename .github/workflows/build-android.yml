@@ -48,8 +48,41 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      # CATATAN: action android-actions/setup-android@v3 DIPENSIUNKAN di sini.
+      # Action itu meminta paket 'tools' yang sudah DIHAPUS dari repo Google,
+      # sehingga langkahnya gagal dengan:
+      #   Warning: Failed to find package 'tools'
+      #   Error: ... sdkmanager ... failed with exit code 1
+      # Runner GitHub sudah menyediakan Android SDK (ANDROID_HOME sudah diisi),
+      # jadi cukup pasang lisensi + paket yang memang ada.
+      - name: Setup Android SDK (SDK bawaan runner)
+        run: |
+          set -e
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "Android SDK: $SDK"
+          if [ -d "$SDK" ]; then
+            export ANDROID_HOME="$SDK"
+            export ANDROID_SDK_ROOT="$SDK"
+            echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+            echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          fi
+
+          SDKMGR="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)"
+          echo "sdkmanager: ${SDKMGR:-tidak ditemukan}"
+
+          if [ -n "$SDKMGR" ]; then
+            yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+            # Paket yang BENAR-BENAR ada di repo Google (jangan pernah 'tools').
+            "$SDKMGR" "platform-tools" "platforms;android-36" "build-tools;36.0.0" >/dev/null 2>&1 \
+              || "$SDKMGR" "platform-tools" "platforms;android-35" "build-tools;35.0.0" >/dev/null 2>&1 \
+              || "$SDKMGR" "platform-tools" >/dev/null 2>&1 \
+              || true
+          fi
+
+          echo "--- platform terpasang ---"
+          ls "$SDK/platforms" 2>/dev/null || true
+          echo "--- build-tools terpasang ---"
+          ls "$SDK/build-tools" 2>/dev/null || true
 
       # Cache Gradle: build kedua dan seterusnya jauh lebih cepat karena
       # dependency + hasil task tidak diunduh/dikerjakan ulang.
