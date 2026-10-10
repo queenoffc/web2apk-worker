@@ -1,0 +1,12 @@
+# ── .gitignore untuk template GitHub Actions ─────────────────────────────
+# Jangan commit hasil build / cache lokal (bikin repo berat & memperlambat
+# checkout di runner GitHub).
+.gradle/
+build/
+app/build/
+out/
+work/
+local.properties
+*.iml
+.idea/
+.DS_Store
