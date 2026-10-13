@@ -87,6 +87,33 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node .github/scripts/prepare-project.js
 
+      # NDK: plugin seperti jni/speech_to_text kadang minta NDK lebih baru
+      # daripada yang dipakai project ("configured with Android NDK 27..., but
+      # jni requires 28.2.13676358"). Di sini NDK disamakan + ndkVersion di
+      # build.gradle(.kts) ikut disetel. Ganti versinya lewat env
+      # ANDROID_NDK_VERSION saat dispatch kalau perlu.
+      - name: Samakan versi NDK
+        working-directory: work/project
+        run: |
+          set -e
+          NDK="${ANDROID_NDK_VERSION:-28.2.13676358}"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMGR="$(ls -d "$SDK"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1 || true)"
+          if [ -n "$SDKMGR" ]; then
+            yes | "$SDKMGR" --licenses >/dev/null 2>&1 || true
+            "$SDKMGR" "ndk;$NDK" >/dev/null 2>&1 || echo "NDK $NDK belum bisa dipasang (Gradle akan coba unduh sendiri)"
+          fi
+          for f in android/app/build.gradle android/app/build.gradle.kts; do
+            [ -f "$f" ] || continue
+            if grep -q 'ndkVersion' "$f"; then
+              # Pertahankan gaya file: 'ndkVersion "x"' atau 'ndkVersion = "x"'
+              sed -i -E "s/ndkVersion([[:space:]]*=?[[:space:]]*)\"[^\"]+\"/ndkVersion\\1\"$NDK\"/" "$f"
+            else
+              sed -i "0,/android {/s//android {\n    ndkVersion \"$NDK\"/" "$f"
+            fi
+            echo "--- $f ---"; grep -n 'ndkVersion' "$f" || true
+          done
+
       - name: Build APK
         env:
           BUILD_TYPE: ${{ fromJSON(inputs.payload).buildType }}
